@@ -1,0 +1,59 @@
+import pandas as pd
+
+# Load the Excel files
+movies = pd.read_excel("movies.xlsx")
+ratings = pd.read_excel("ratings.xlsx")
+
+# Preview the data
+print("Movies data:")
+print(movies.head())
+
+print("\nRatings data:")
+print(ratings.head())
+
+
+
+# Create a pivot table: rows = userId, columns = movieId, values = rating
+user_movie_matrix = ratings.pivot_table(index='userId', columns='movieId', values='rating')
+
+# Fill missing ratings with 0
+user_movie_matrix = user_movie_matrix.fillna(0)
+
+# Preview the matrix
+print(user_movie_matrix.head())
+
+
+
+
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Compute similarity between movies (transpose to compare movies)
+movie_similarity = cosine_similarity(user_movie_matrix.T)
+
+# Convert to DataFrame for easy lookup
+movie_similarity_df = pd.DataFrame(movie_similarity, index=user_movie_matrix.columns, columns=user_movie_matrix.columns)
+
+# Preview similarity matrix
+print(movie_similarity_df.head())
+
+
+
+
+def recommend_movies(movie_id, top_n=5):
+    # Sort movies by similarity score
+    similar_scores = movie_similarity_df[movie_id].sort_values(ascending=False)
+    
+    # Exclude the movie itself
+    similar_scores = similar_scores.drop(movie_id)
+    
+    # Get top N similar movies
+    top_movie_ids = similar_scores.head(top_n).index
+    
+    # Return movie titles
+    return movies[movies['movieId'].isin(top_movie_ids)]['title'].values
+
+
+
+# Example: Recommend 5 movies similar to Toy Story (movieId = 1)
+recommend_movies(1, top_n=5)
+
