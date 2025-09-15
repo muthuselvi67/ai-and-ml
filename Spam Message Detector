@@ -1,0 +1,134 @@
+import pandas as pd
+import requests
+import zipfile
+import io
+import string
+import nltk
+from nltk.corpus import stopwords
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# Download stopwords
+nltk.download('stopwords')
+stop_words = set(stopwords.words('english'))
+
+
+
+ URL of dataset
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00228/smsspamcollection.zip"
+
+# Download and extract
+r = requests.get(url)
+z = zipfile.ZipFile(io.BytesIO(r.content))
+z.extractall()
+
+# Load dataset
+df = pd.read_csv("SMSSpamCollection", sep='\t', names=["label", "message"])
+
+
+
+# Check dataset info
+df.info()
+
+# Check missing values
+df.isnull().sum()
+
+# Count of spam vs ham
+print(df['label'].value_counts())
+
+# Plot distribution
+sns.countplot(x='label', data=df)
+plt.show()
+
+
+def preprocess(text):
+    text = text.lower()  # convert to lowercase
+    text = ''.join([c for c in text if c not in string.punctuation])  # remove punctuation
+    words = text.split()
+    words = [word for word in words if word not in stop_words]  # remove stopwords
+    return ' '.join(words)
+
+# Apply preprocessing to all messages
+df['message_clean'] = df['message'].apply(preprocess)
+
+# View first 5 rows
+df.head()
+
+
+
+# Convert text messages to numerical data using TF-IDF
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(df['message_clean'])
+
+# Encode labels: ham = 0, spam = 1
+y = df['label'].map({'ham': 0, 'spam': 1})
+
+# Check shapes
+print("Features shape:", X.shape)
+print("Labels shape:", y.shape)
+
+
+
+# Split dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Check shapes
+print("X_train shape:", X_train.shape)
+print("X_test shape:", X_test.shape)
+print("y_train shape:", y_train.shape)
+print("y_test shape:", y_test.shape)
+
+
+
+
+# Create and train Naive Bayes model
+model = MultinomialNB()
+model.fit(X_train, y_train)
+
+# Predict on test data
+y_pred = model.predict(X_test)
+
+
+
+# Evaluate model performance
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
+
+
+# Function to predict if a message is spam or ham
+def predict_spam(message):
+    msg_clean = preprocess(message)                  # Preprocess the message
+    msg_vec = vectorizer.transform([msg_clean])     # Convert to vector
+    pred = model.predict(msg_vec)[0]                # Predict
+    return 'spam' if pred == 1 else 'ham'
+
+# Test examples
+print(predict_spam("Congratulations! You won a free ticket"))
+print(predict_spam("Hey, are we meeting today?"))
+
+
+
+
+# Interactive message input
+while True:
+    message = input("Enter a message (or type 'exit' to quit): ")
+    if message.lower() == 'exit':
+        print("Exiting...")
+        break
+    result = predict_spam(message)
+    print("Prediction:", result)
+
+
+
+
+# View first 5 rows
+df.head()
